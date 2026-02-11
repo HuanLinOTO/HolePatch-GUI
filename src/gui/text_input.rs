@@ -58,6 +58,43 @@ impl TextInput {
         let key = &event.keystroke.key;
         let modifiers = &event.keystroke.modifiers;
 
+        // Handle Ctrl+A (Select All) - copy to clipboard
+        if (modifiers.control || modifiers.platform) && key == "a" {
+            if !self.content.is_empty() {
+                cx.write_to_clipboard(ClipboardItem::new_string(self.content.to_string()));
+            }
+            return;
+        }
+
+        // Handle Ctrl+C (Copy)
+        if (modifiers.control || modifiers.platform) && key == "c" {
+            if !self.content.is_empty() {
+                cx.write_to_clipboard(ClipboardItem::new_string(self.content.to_string()));
+            }
+            return;
+        }
+
+        // Handle Ctrl+X (Cut)
+        if (modifiers.control || modifiers.platform) && key == "x" {
+            if !self.content.is_empty() {
+                cx.write_to_clipboard(ClipboardItem::new_string(self.content.to_string()));
+                self.content = "".into();
+                cx.notify();
+            }
+            return;
+        }
+
+        // Handle Ctrl+V (Paste)
+        if (modifiers.control || modifiers.platform) && key == "v" {
+            if let Some(clipboard_text) = cx.read_from_clipboard() {
+                if let Some(text) = clipboard_text.text() {
+                    self.content = text.into();
+                    cx.notify();
+                }
+            }
+            return;
+        }
+
         match key.as_str() {
             "backspace" => {
                 let mut text = self.content.to_string();

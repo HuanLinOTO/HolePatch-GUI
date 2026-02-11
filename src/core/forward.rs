@@ -15,18 +15,18 @@ pub enum ForwardMethod {
 impl ForwardMethod {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "none" => Some(ForwardMethod::None),
-            "test" => Some(ForwardMethod::TestServer),
             "socket" => Some(ForwardMethod::Socket),
+            "test" => Some(ForwardMethod::TestServer),
+            "none" => Some(ForwardMethod::None),
             _ => None,
         }
     }
 
     pub fn display_name(&self) -> &str {
         match self {
-            ForwardMethod::None => "none",
-            ForwardMethod::TestServer => "test",
             ForwardMethod::Socket => "socket",
+            ForwardMethod::TestServer => "test",
+            ForwardMethod::None => "none",
         }
     }
 
@@ -105,7 +105,8 @@ impl Forwarder {
                             conn.set_read_timeout(Some(Duration::from_secs(3))).ok();
                             let mut buf = [0u8; 8192];
                             let _ = conn.read(&mut buf);
-                            let content = "<html><body><h1>It works!</h1><hr/>HolePatch</body></html>";
+                            let content =
+                                "<html><body><h1>It works!</h1><hr/>HolePatch</body></html>";
                             let response = format!(
                                 "HTTP/1.1 200 OK\r\n\
                                  Content-Type: text/html\r\n\
@@ -177,10 +178,9 @@ impl Forwarder {
                     match listener.accept() {
                         Ok((inbound, _)) => {
                             let running_c = running.clone();
-                            if let Ok(outbound) = TcpStream::connect_timeout(
-                                &to_addr,
-                                Duration::from_secs(3),
-                            ) {
+                            if let Ok(outbound) =
+                                TcpStream::connect_timeout(&to_addr, Duration::from_secs(3))
+                            {
                                 let inbound_clone = inbound.try_clone().unwrap();
                                 let outbound_clone = outbound.try_clone().unwrap();
 

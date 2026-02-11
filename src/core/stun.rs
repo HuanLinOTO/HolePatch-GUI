@@ -118,10 +118,7 @@ impl StunClient {
     }
 
     /// Get mapping via TCP STUN
-    fn get_mapping_tcp(
-        &mut self,
-        server: &(String, u16),
-    ) -> Result<StunResult, String> {
+    fn get_mapping_tcp(&mut self, server: &(String, u16)) -> Result<StunResult, String> {
         let addr_str = format!("{}:{}", server.0, server.1);
         let addrs: Vec<SocketAddr> = addr_str
             .to_socket_addrs()
@@ -151,9 +148,7 @@ impl StunClient {
             .map_err(|e| format!("Connect to {} failed: {}", addrs[0], e))?;
 
         let mut stream: TcpStream = socket.into();
-        stream
-            .set_read_timeout(Some(Duration::from_secs(3)))
-            .ok();
+        stream.set_read_timeout(Some(Duration::from_secs(3))).ok();
 
         let inner_addr = stream
             .local_addr()
@@ -180,10 +175,7 @@ impl StunClient {
     }
 
     /// Get mapping via UDP STUN
-    fn get_mapping_udp(
-        &mut self,
-        server: &(String, u16),
-    ) -> Result<StunResult, String> {
+    fn get_mapping_udp(&mut self, server: &(String, u16)) -> Result<StunResult, String> {
         let addr_str = format!("{}:{}", server.0, server.1);
         let addrs: Vec<SocketAddr> = addr_str
             .to_socket_addrs()
@@ -196,9 +188,7 @@ impl StunClient {
         let bind_addr = format!("{}:{}", self.source_host, self.source_port);
         let socket = UdpSocket::bind(&bind_addr)
             .map_err(|e| format!("Bind to {} failed: {}", bind_addr, e))?;
-        socket
-            .set_read_timeout(Some(Duration::from_secs(3)))
-            .ok();
+        socket.set_read_timeout(Some(Duration::from_secs(3))).ok();
         socket
             .connect(addrs[0])
             .map_err(|e| format!("Connect to {} failed: {}", addrs[0], e))?;
@@ -254,6 +244,9 @@ impl StunClient {
                 }
             }
         }
-        Err(format!("All STUN servers unavailable. Last error: {}", last_err))
+        Err(format!(
+            "All STUN servers unavailable. Last error: {}",
+            last_err
+        ))
     }
 }

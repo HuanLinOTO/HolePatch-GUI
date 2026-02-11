@@ -1,10 +1,10 @@
-use gpui::*;
 use gpui::prelude::FluentBuilder;
+use gpui::*;
 
 use super::text_input::TextInput;
 use super::theme::Theme;
 use crate::core::forward::ForwardMethod;
-use crate::core::natter::{NatterConfig, NatterSession, NatterStatus, LogEntry};
+use crate::core::natter::{LogEntry, NatterConfig, NatterSession, NatterStatus};
 use crate::profile::{Profile, ProfileStore};
 
 /// The main application view
@@ -44,32 +44,20 @@ impl HolePatchApp {
         let profile_store = ProfileStore::load();
 
         let mut app = HolePatchApp {
-            bind_ip_input: cx.new(|cx| {
-                TextInput::new("bind-ip", "绑定 IP", "0.0.0.0", cx)
-            }),
-            bind_port_input: cx.new(|cx| {
-                TextInput::new("bind-port", "绑定端口", "0 (自动)", cx)
-            }),
-            target_ip_input: cx.new(|cx| {
-                TextInput::new("target-ip", "目标 IP", "0.0.0.0", cx)
-            }),
-            target_port_input: cx.new(|cx| {
-                TextInput::new("target-port", "目标端口", "0 (跟随外部端口)", cx)
-            }),
-            keepalive_host_input: cx.new(|cx| {
-                TextInput::new("ka-host", "保活服务器", "www.baidu.com", cx)
-            }),
-            keepalive_port_input: cx.new(|cx| {
-                TextInput::new("ka-port", "保活端口", "80", cx)
-            }),
+            bind_ip_input: cx.new(|cx| TextInput::new("bind-ip", "绑定 IP", "0.0.0.0", cx)),
+            bind_port_input: cx.new(|cx| TextInput::new("bind-port", "绑定端口", "0 (自动)", cx)),
+            target_ip_input: cx.new(|cx| TextInput::new("target-ip", "目标 IP", "0.0.0.0", cx)),
+            target_port_input: cx.new(|cx| TextInput::new("target-port", "目标端口", "0", cx)),
+            keepalive_host_input: cx
+                .new(|cx| TextInput::new("ka-host", "保活服务器", "www.baidu.com", cx)),
+            keepalive_port_input: cx.new(|cx| TextInput::new("ka-port", "保活端口", "80", cx)),
             keepalive_interval_input: cx.new(|cx| {
                 let mut input = TextInput::new("ka-interval", "保活间隔 (秒)", "15", cx);
                 input.set_text("15", cx);
                 input
             }),
-            profile_name_input: cx.new(|cx| {
-                TextInput::new("profile-name", "配置名称", "My Profile", cx)
-            }),
+            profile_name_input: cx
+                .new(|cx| TextInput::new("profile-name", "配置名称", "My Profile", cx)),
             udp_mode: false,
             forward_method_index: 1, // TestServer by default
             forward_methods,
@@ -92,9 +80,11 @@ impl HolePatchApp {
         }
 
         // Start a timer to poll session status
-        cx.spawn(async move |this: WeakEntity<HolePatchApp>, cx: &mut AsyncApp| {
-            loop {
-                cx.background_executor().timer(std::time::Duration::from_millis(500)).await;
+        cx.spawn(
+            async move |this: WeakEntity<HolePatchApp>, cx: &mut AsyncApp| loop {
+                cx.background_executor()
+                    .timer(std::time::Duration::from_millis(500))
+                    .await;
                 let should_continue = this.update(cx, |this, cx| {
                     this.poll_session(cx);
                     true
@@ -102,8 +92,9 @@ impl HolePatchApp {
                 if should_continue.is_err() {
                     break;
                 }
-            }
-        }).detach();
+            },
+        )
+        .detach();
 
         app
     }
@@ -113,7 +104,7 @@ impl HolePatchApp {
             let status_changed = !matches!(
                 (&self.cached_status, &*status),
                 (NatterStatus::Idle, NatterStatus::Idle)
-                | (NatterStatus::Connecting, NatterStatus::Connecting)
+                    | (NatterStatus::Connecting, NatterStatus::Connecting)
             );
             // Always update cached status by cloning
             self.cached_status = status.clone();
@@ -154,8 +145,13 @@ impl HolePatchApp {
         self.udp_mode = profile.udp_mode;
 
         // Find forward method index
-        let method = ForwardMethod::from_str(&profile.forward_method).unwrap_or(ForwardMethod::TestServer);
-        self.forward_method_index = self.forward_methods.iter().position(|m| m == &method).unwrap_or(1);
+        let method =
+            ForwardMethod::from_str(&profile.forward_method).unwrap_or(ForwardMethod::TestServer);
+        self.forward_method_index = self
+            .forward_methods
+            .iter()
+            .position(|m| m == &method)
+            .unwrap_or(1);
 
         cx.notify();
     }
@@ -171,13 +167,21 @@ impl HolePatchApp {
 
         NatterConfig {
             udp_mode: self.udp_mode,
-            bind_ip: if bind_ip.is_empty() { "0.0.0.0".into() } else { bind_ip },
+            bind_ip: if bind_ip.is_empty() {
+                "0.0.0.0".into()
+            } else {
+                bind_ip
+            },
             bind_port: bind_port_str.parse().unwrap_or(0),
             stun_servers: vec![],
             keepalive_host: ka_host,
             keepalive_port: ka_port_str.parse().unwrap_or(0),
             forward_method: self.forward_methods[self.forward_method_index].clone(),
-            target_ip: if target_ip.is_empty() { "0.0.0.0".into() } else { target_ip },
+            target_ip: if target_ip.is_empty() {
+                "0.0.0.0".into()
+            } else {
+                target_ip
+            },
             target_port: target_port_str.parse().unwrap_or(0),
             keepalive_interval: interval_str.parse().unwrap_or(15),
         }
@@ -186,21 +190,42 @@ impl HolePatchApp {
     fn build_profile(&self, cx: &App) -> Profile {
         let name = self.profile_name_input.read(cx).text();
         Profile {
-            name: if name.is_empty() { "Unnamed".into() } else { name },
+            name: if name.is_empty() {
+                "Unnamed".into()
+            } else {
+                name
+            },
             udp_mode: self.udp_mode,
             bind_ip: self.bind_ip_input.read(cx).text(),
             bind_port: self.bind_port_input.read(cx).text().parse().unwrap_or(0),
             stun_servers: vec![],
             keepalive_host: self.keepalive_host_input.read(cx).text(),
-            keepalive_port: self.keepalive_port_input.read(cx).text().parse().unwrap_or(0),
-            forward_method: self.forward_methods[self.forward_method_index].display_name().into(),
+            keepalive_port: self
+                .keepalive_port_input
+                .read(cx)
+                .text()
+                .parse()
+                .unwrap_or(0),
+            forward_method: self.forward_methods[self.forward_method_index]
+                .display_name()
+                .into(),
             target_ip: self.target_ip_input.read(cx).text(),
             target_port: self.target_port_input.read(cx).text().parse().unwrap_or(0),
-            keepalive_interval: self.keepalive_interval_input.read(cx).text().parse().unwrap_or(15),
+            keepalive_interval: self
+                .keepalive_interval_input
+                .read(cx)
+                .text()
+                .parse()
+                .unwrap_or(15),
         }
     }
 
-    fn on_start_click(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_start_click(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.session.is_running() {
             return;
         }
@@ -221,13 +246,20 @@ impl HolePatchApp {
     }
 
     fn set_inputs_enabled(&self, enabled: bool, cx: &mut Context<Self>) {
-        self.bind_ip_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.bind_port_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.target_ip_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.target_port_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.keepalive_host_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.keepalive_port_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
-        self.keepalive_interval_input.update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.bind_ip_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.bind_port_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.target_ip_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.target_port_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.keepalive_host_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.keepalive_port_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
+        self.keepalive_interval_input
+            .update(cx, |i, cx| i.set_enabled(enabled, cx));
     }
 
     fn on_toggle_udp(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
@@ -237,29 +269,76 @@ impl HolePatchApp {
         }
     }
 
-    fn on_cycle_forward_method(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_cycle_forward_method(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.session.is_running() {
-            self.forward_method_index = (self.forward_method_index + 1) % self.forward_methods.len();
+            self.forward_method_index =
+                (self.forward_method_index + 1) % self.forward_methods.len();
             cx.notify();
         }
     }
 
-    fn on_toggle_profiles(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_toggle_profiles(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.show_profile_panel = !self.show_profile_panel;
         cx.notify();
     }
 
-    fn on_save_profile(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_save_profile(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let profile = self.build_profile(cx);
-        if let Some(idx) = self.selected_profile_index {
-            self.profile_store.update_profile(idx, profile);
+        let current_name = self.profile_name_input.read(cx).text();
+
+        // 判断是更新现有配置还是添加新配置
+        let should_update = if let Some(idx) = self.selected_profile_index {
+            // 如果配置名称与选中的配置相同，则更新；否则添加新配置
+            idx < self.profile_store.profiles.len()
+                && self.profile_store.profiles[idx].name == current_name
         } else {
+            false
+        };
+
+        if should_update {
+            // 更新现有配置
+            if let Some(idx) = self.selected_profile_index {
+                self.profile_store.update_profile(idx, profile);
+            }
+        } else {
+            // 添加新配置
             self.profile_store.add_profile(profile);
-            self.selected_profile_index = Some(self.profile_store.profiles.len() - 1);
+            // 清空配置名称输入框，方便保存下一个
+            self.profile_name_input.update(cx, |input, cx| {
+                input.set_text("", cx);
+            });
+            // 取消选中状态
+            self.selected_profile_index = None;
         }
-        if let Some(idx) = self.selected_profile_index {
-            self.profile_store.set_last_used(idx);
-        }
+        cx.notify();
+    }
+
+    fn on_new_profile(
+        &mut self,
+        _event: &ClickEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // 取消选中，清空配置名称
+        self.selected_profile_index = None;
+        self.profile_name_input.update(cx, |input, cx| {
+            input.set_text("", cx);
+        });
         cx.notify();
     }
 
@@ -294,7 +373,9 @@ impl HolePatchApp {
     fn on_open_link(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
         if let Some(url) = self.get_link_url() {
             #[cfg(target_os = "windows")]
-            let result = std::process::Command::new("cmd").args(["/c", "start", "", &url]).spawn();
+            let result = std::process::Command::new("cmd")
+                .args(["/c", "start", "", &url])
+                .spawn();
             #[cfg(target_os = "macos")]
             let result = std::process::Command::new("open").arg(&url).spawn();
             #[cfg(target_os = "linux")]
@@ -347,7 +428,11 @@ impl HolePatchApp {
             .text_size(px(12.0))
             .text_color(Theme::text_secondary())
             .child(label_str)
-            .hover(|s| s.bg(Theme::bg_hover()).text_color(Theme::text_primary()).border_color(Theme::border_focused()))
+            .hover(|s| {
+                s.bg(Theme::bg_hover())
+                    .text_color(Theme::text_primary())
+                    .border_color(Theme::border_focused())
+            })
     }
 
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -432,14 +517,24 @@ impl HolePatchApp {
                     // Start / Stop
                     .when(!is_running, |el| {
                         el.child(
-                            Self::pill_btn("start-btn", "启动", Theme::accent(), Theme::accent_hover())
-                                .on_click(cx.listener(Self::on_start_click)),
+                            Self::pill_btn(
+                                "start-btn",
+                                "启动",
+                                Theme::accent(),
+                                Theme::accent_hover(),
+                            )
+                            .on_click(cx.listener(Self::on_start_click)),
                         )
                     })
                     .when(is_running, |el| {
                         el.child(
-                            Self::pill_btn("stop-btn", "停止", Theme::danger(), Theme::danger_hover())
-                                .on_click(cx.listener(Self::on_stop_click)),
+                            Self::pill_btn(
+                                "stop-btn",
+                                "停止",
+                                Theme::danger(),
+                                Theme::danger_hover(),
+                            )
+                            .on_click(cx.listener(Self::on_stop_click)),
                         )
                     }),
             )
@@ -463,10 +558,22 @@ impl HolePatchApp {
             )
     }
 
-    fn render_config_panel(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_config_panel(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let is_running = self.session.is_running();
-        let udp_label: SharedString = if self.udp_mode { "UDP".into() } else { "TCP".into() };
-        let udp_color = if self.udp_mode { Theme::warning() } else { Theme::accent() };
+        let udp_label: SharedString = if self.udp_mode {
+            "UDP".into()
+        } else {
+            "TCP".into()
+        };
+        let udp_color = if self.udp_mode {
+            Theme::warning()
+        } else {
+            Theme::accent()
+        };
         let method_name: SharedString = self.forward_methods[self.forward_method_index]
             .display_name()
             .to_string()
@@ -563,27 +670,25 @@ impl HolePatchApp {
             )
             // Bind settings card
             .child(
-                Self::section_card("绑定设置")
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap(px(6.0))
-                            .child(div().flex_1().child(self.bind_ip_input.clone()))
-                            .child(div().w(px(80.0)).child(self.bind_port_input.clone())),
-                    ),
+                Self::section_card("绑定设置").child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .gap(px(6.0))
+                        .child(div().flex_1().child(self.bind_ip_input.clone()))
+                        .child(div().w(px(80.0)).child(self.bind_port_input.clone())),
+                ),
             )
             // Target settings card
             .child(
-                Self::section_card("转发目标")
-                    .child(
-                        div()
-                            .flex()
-                            .flex_row()
-                            .gap(px(6.0))
-                            .child(div().flex_1().child(self.target_ip_input.clone()))
-                            .child(div().w(px(80.0)).child(self.target_port_input.clone())),
-                    ),
+                Self::section_card("转发目标").child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .gap(px(6.0))
+                        .child(div().flex_1().child(self.target_ip_input.clone()))
+                        .child(div().w(px(80.0)).child(self.target_port_input.clone())),
+                ),
             )
             // Keep-alive settings card
             .child(
@@ -594,8 +699,14 @@ impl HolePatchApp {
                             .flex_row()
                             .gap(px(6.0))
                             .child(div().flex_1().child(self.keepalive_host_input.clone()))
-                            .child(div().w(px(56.0)).child(self.keepalive_port_input.clone()))
-                            .child(div().w(px(56.0)).child(self.keepalive_interval_input.clone())),
+                            .child(div().w(px(80.0)).child(self.keepalive_port_input.clone())),
+                    )
+                    .child(
+                        div().flex().flex_row().mt(px(6.0)).child(
+                            div()
+                                .w(px(80.0))
+                                .child(self.keepalive_interval_input.clone()),
+                        ),
                     ),
             )
     }
@@ -685,7 +796,11 @@ impl HolePatchApp {
             )
     }
 
-    fn render_profile_panel(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_profile_panel(
+        &mut self,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let profiles = self.profile_store.profiles.clone();
         let selected = self.selected_profile_index;
 
@@ -730,7 +845,11 @@ impl HolePatchApp {
                             Theme::transparent()
                         };
                         let name: SharedString = profile.name.clone().into();
-                        let mode: SharedString = if profile.udp_mode { "UDP".into() } else { "TCP".into() };
+                        let mode: SharedString = if profile.udp_mode {
+                            "UDP".into()
+                        } else {
+                            "TCP".into()
+                        };
                         let method: SharedString = profile.forward_method.clone().into();
 
                         div()
@@ -749,8 +868,13 @@ impl HolePatchApp {
                             .hover(|s| s.bg(Theme::bg_hover()))
                             .child(
                                 div()
-                                    .text_size(px(12.0))
-                                    .text_color(if is_selected { Theme::text_primary() } else { Theme::text_secondary() })
+                                    .text_size(px(12.5))
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .text_color(if is_selected {
+                                        Theme::text_primary()
+                                    } else {
+                                        Theme::text_secondary()
+                                    })
                                     .child(name),
                             )
                             .child(
@@ -762,7 +886,9 @@ impl HolePatchApp {
                                     .text_color(Theme::text_muted())
                                     .child(mode)
                                     .child(SharedString::from("·"))
-                                    .child(method),
+                                    .child(method)
+                                    .child(SharedString::from("·"))
+                                    .child(SharedString::from(format!(":{}", profile.target_port))),
                             )
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 this.selected_profile_index = Some(idx);
@@ -789,19 +915,40 @@ impl HolePatchApp {
                             .flex_row()
                             .gap(px(4.0))
                             .child(
-                                Self::pill_btn("save-profile-btn", "保存", Theme::accent(), Theme::accent_hover())
-                                    .flex_1()
-                                    .on_click(cx.listener(Self::on_save_profile)),
+                                Self::pill_btn(
+                                    "new-profile-btn",
+                                    "取消选中",
+                                    Theme::bg_elevated(),
+                                    Theme::bg_hover(),
+                                )
+                                .on_click(cx.listener(Self::on_new_profile)),
                             )
                             .child(
-                                Self::pill_btn("delete-profile-btn", "删除", Theme::danger(), Theme::danger_hover())
-                                    .on_click(cx.listener(|this, _, _, cx| {
+                                Self::pill_btn(
+                                    "save-profile-btn",
+                                    "保存",
+                                    Theme::accent(),
+                                    Theme::accent_hover(),
+                                )
+                                .flex_1()
+                                .on_click(cx.listener(Self::on_save_profile)),
+                            )
+                            .child(
+                                Self::pill_btn(
+                                    "delete-profile-btn",
+                                    "删除",
+                                    Theme::danger(),
+                                    Theme::danger_hover(),
+                                )
+                                .on_click(cx.listener(
+                                    |this, _, _, cx| {
                                         if let Some(idx) = this.selected_profile_index {
                                             this.profile_store.remove_profile(idx);
                                             this.selected_profile_index = None;
                                             cx.notify();
                                         }
-                                    })),
+                                    },
+                                )),
                             ),
                     ),
             )

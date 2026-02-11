@@ -1,15 +1,15 @@
 [package]
+description = "A GUI tool for NAT hole punching based on Natter, built with GPUI"
+edition = "2021"
 name = "holepatch-gui"
 version = "0.1.0"
-edition = "2021"
-description = "A GUI tool for NAT hole punching based on Natter, built with GPUI"
 
 [dependencies]
-gpui = "0.2.2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-rand = "0.8"
-dirs = "5"
 chrono = "0.4"
+dirs = "5"
+gpui = "0.2.2"
 log = "0.4"
+rand = "0.8"
+serde = {version = "1", features = ["derive"]}
+serde_json = "1"
 socket2 = "0.5"
