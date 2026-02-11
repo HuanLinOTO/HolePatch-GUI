@@ -1,8 +1,9 @@
-use gpui::*;
 use gpui::prelude::FluentBuilder;
+use gpui::*;
 
-/// A simple text input component that handles keyboard input via on_key_down.
-/// This avoids the complexity of EntityInputHandler for a straightforward use case.
+use super::theme::Theme;
+
+/// A compact text input with inline label.
 #[derive(Clone)]
 pub struct TextInput {
     pub id: ElementId,
@@ -44,7 +45,12 @@ impl TextInput {
         cx.notify();
     }
 
-    fn handle_key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn handle_key_down(
+        &mut self,
+        event: &KeyDownEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if !self.enabled {
             return;
         }
@@ -64,7 +70,6 @@ impl TextInput {
                 cx.notify();
             }
             _ => {
-                // Use key_char if available for proper character input
                 if let Some(key_char) = &event.keystroke.key_char {
                     if !modifiers.control && !modifiers.platform {
                         let mut text = self.content.to_string();
@@ -88,48 +93,49 @@ impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_focused = self.focus_handle.is_focused(window);
         let has_content = !self.content.is_empty();
+
         let border_color = if is_focused {
-            super::theme::Theme::border_focused()
+            Theme::border_focused()
         } else {
-            super::theme::Theme::border()
+            Theme::border_subtle()
         };
 
         div()
             .flex()
             .flex_col()
-            .gap_1()
+            .gap(px(3.0))
             .w_full()
+            // Label
             .child(
                 div()
-                    .text_size(px(12.0))
-                    .text_color(super::theme::Theme::text_secondary())
+                    .text_size(px(11.0))
+                    .text_color(Theme::text_muted())
                     .child(self.label.clone()),
             )
+            // Input field
             .child(
                 div()
                     .id(self.id.clone())
                     .track_focus(&self.focus_handle)
                     .on_key_down(cx.listener(Self::handle_key_down))
-                    .px(px(10.0))
-                    .py(px(6.0))
+                    .px(px(8.0))
+                    .py(px(5.0))
                     .w_full()
-                    .bg(super::theme::Theme::bg_input())
+                    .bg(Theme::bg_input())
                     .border_1()
                     .border_color(border_color)
-                    .rounded(px(6.0))
+                    .rounded(px(4.0))
                     .cursor(CursorStyle::IBeam)
-                    .text_size(px(14.0))
+                    .text_size(px(13.0))
                     .when(has_content, |el| {
-                        el.text_color(super::theme::Theme::text_primary())
+                        el.text_color(Theme::text_primary())
                             .child(self.content.clone())
                     })
                     .when(!has_content, |el| {
-                        el.text_color(super::theme::Theme::text_placeholder())
+                        el.text_color(Theme::text_muted())
                             .child(self.placeholder.clone())
                     })
-                    .when(!self.enabled, |el| {
-                        el.opacity(0.5)
-                    }),
+                    .when(!self.enabled, |el| el.opacity(0.4)),
             )
     }
 }

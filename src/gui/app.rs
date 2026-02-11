@@ -308,18 +308,60 @@ impl HolePatchApp {
         }
     }
 
+    /// Reusable pill-shaped button builder
+    fn pill_btn(id: &str, label: &str, bg: Hsla, hover_bg: Hsla) -> Stateful<Div> {
+        let id_str: SharedString = id.to_string().into();
+        let label_str: SharedString = label.to_string().into();
+        div()
+            .id(ElementId::Name(id_str))
+            .flex()
+            .items_center()
+            .justify_center()
+            .px(px(14.0))
+            .py(px(5.0))
+            .bg(bg)
+            .rounded(px(4.0))
+            .cursor_pointer()
+            .text_size(px(12.0))
+            .text_color(Theme::white())
+            .child(label_str)
+            .hover(move |s| s.bg(hover_bg))
+    }
+
+    /// Outlined pill button (for secondary actions)
+    fn pill_btn_outline(id: &str, label: &str) -> Stateful<Div> {
+        let id_str: SharedString = id.to_string().into();
+        let label_str: SharedString = label.to_string().into();
+        div()
+            .id(ElementId::Name(id_str))
+            .flex()
+            .items_center()
+            .justify_center()
+            .px(px(14.0))
+            .py(px(5.0))
+            .bg(Theme::transparent())
+            .border_1()
+            .border_color(Theme::border())
+            .rounded(px(4.0))
+            .cursor_pointer()
+            .text_size(px(12.0))
+            .text_color(Theme::text_secondary())
+            .child(label_str)
+            .hover(|s| s.bg(Theme::bg_hover()).text_color(Theme::text_primary()).border_color(Theme::border_focused()))
+    }
+
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_running = self.session.is_running();
+        let is_connected = matches!(&self.cached_status, NatterStatus::Connected { .. });
+
         let status_text: SharedString = match &self.cached_status {
             NatterStatus::Idle => "就绪".into(),
             NatterStatus::Connecting => "连接中...".into(),
-            NatterStatus::Connected { outer_addr, .. } => {
-                format!("已连接: {}", outer_addr).into()
-            }
-            NatterStatus::Error(e) => format!("错误: {}", e).into(),
+            NatterStatus::Connected { outer_addr, .. } => format!("{}", outer_addr).into(),
+            NatterStatus::Error(e) => format!("{}", e).into(),
         };
         let status_color = match &self.cached_status {
-            NatterStatus::Idle => Theme::text_secondary(),
+            NatterStatus::Idle => Theme::text_muted(),
             NatterStatus::Connecting => Theme::warning(),
             NatterStatus::Connected { .. } => Theme::success(),
             NatterStatus::Error(_) => Theme::error(),
@@ -331,123 +373,99 @@ impl HolePatchApp {
             .items_center()
             .justify_between()
             .w_full()
-            .px(px(20.0))
-            .py(px(12.0))
+            .h(px(44.0))
+            .px(px(16.0))
             .bg(Theme::bg_secondary())
             .border_b_1()
-            .border_color(Theme::border())
+            .border_color(Theme::border_subtle())
+            // Left: logo + status
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap(px(12.0))
+                    .gap(px(10.0))
                     .child(
                         div()
-                            .text_size(px(18.0))
+                            .text_size(px(15.0))
                             .text_color(Theme::accent())
-                            .child("⬡ HolePatch"),
+                            .child("HolePatch"),
+                    )
+                    // Status dot
+                    .child(
+                        div()
+                            .w(px(6.0))
+                            .h(px(6.0))
+                            .rounded(px(3.0))
+                            .bg(status_color),
                     )
                     .child(
                         div()
-                            .text_size(px(12.0))
+                            .text_size(px(11.0))
                             .text_color(status_color)
                             .child(status_text),
                     ),
             )
+            // Right: action buttons
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .gap(px(8.0))
+                    .items_center()
+                    .gap(px(6.0))
+                    // Copy / Open buttons (only when connected)
+                    .when(is_connected, |el| {
+                        el.child(
+                            Self::pill_btn_outline("copy-link-btn", "复制链接")
+                                .on_click(cx.listener(Self::on_copy_link)),
+                        )
+                        .child(
+                            Self::pill_btn_outline("open-browser-btn", "浏览器打开")
+                                .on_click(cx.listener(Self::on_open_link)),
+                        )
+                    })
+                    // Profiles toggle
                     .child(
-                        div()
-                            .id("profiles-btn")
-                            .px(px(12.0))
-                            .py(px(6.0))
-                            .bg(Theme::bg_tertiary())
-                            .border_1()
-                            .border_color(Theme::border())
-                            .rounded(px(6.0))
-                            .cursor_pointer()
-                            .text_size(px(13.0))
-                            .text_color(Theme::text_primary())
-                            .child("📋 配置")
-                            .hover(|s| s.bg(Theme::accent()).text_color(hsla(0.0, 0.0, 1.0, 1.0)))
+                        Self::pill_btn_outline("profiles-btn", "配置")
                             .on_click(cx.listener(Self::on_toggle_profiles)),
                     )
+                    // Start / Stop
                     .when(!is_running, |el| {
                         el.child(
-                            div()
-                                .id("start-btn")
-                                .px(px(16.0))
-                                .py(px(6.0))
-                                .bg(Theme::accent())
-                                .rounded(px(6.0))
-                                .cursor_pointer()
-                                .text_size(px(13.0))
-                                .text_color(hsla(0.0, 0.0, 1.0, 1.0))
-                                .child("▶ 启动")
-                                .hover(|s| s.bg(Theme::accent_hover()))
+                            Self::pill_btn("start-btn", "启动", Theme::accent(), Theme::accent_hover())
                                 .on_click(cx.listener(Self::on_start_click)),
                         )
                     })
                     .when(is_running, |el| {
                         el.child(
-                            div()
-                                .id("stop-btn")
-                                .px(px(16.0))
-                                .py(px(6.0))
-                                .bg(Theme::danger())
-                                .rounded(px(6.0))
-                                .cursor_pointer()
-                                .text_size(px(13.0))
-                                .text_color(hsla(0.0, 0.0, 1.0, 1.0))
-                                .child("⏹ 停止")
-                                .hover(|s| s.bg(Theme::danger_hover()))
+                            Self::pill_btn("stop-btn", "停止", Theme::danger(), Theme::danger_hover())
                                 .on_click(cx.listener(Self::on_stop_click)),
-                        )
-                    })
-                    .when(matches!(&self.cached_status, NatterStatus::Connected { .. }), |el| {
-                        el.child(
-                            div()
-                                .id("copy-link-btn")
-                                .px(px(12.0))
-                                .py(px(6.0))
-                                .bg(Theme::bg_tertiary())
-                                .border_1()
-                                .border_color(Theme::border())
-                                .rounded(px(6.0))
-                                .cursor_pointer()
-                                .text_size(px(13.0))
-                                .text_color(Theme::text_primary())
-                                .child("复制链接")
-                                .hover(|s| s.bg(Theme::accent()).text_color(hsla(0.0, 0.0, 1.0, 1.0)))
-                                .on_click(cx.listener(Self::on_copy_link)),
-                        )
-                        .child(
-                            div()
-                                .id("open-browser-btn")
-                                .px(px(12.0))
-                                .py(px(6.0))
-                                .bg(Theme::bg_tertiary())
-                                .border_1()
-                                .border_color(Theme::border())
-                                .rounded(px(6.0))
-                                .cursor_pointer()
-                                .text_size(px(13.0))
-                                .text_color(Theme::text_primary())
-                                .child("浏览器打开")
-                                .hover(|s| s.bg(Theme::accent()).text_color(hsla(0.0, 0.0, 1.0, 1.0)))
-                                .on_click(cx.listener(Self::on_open_link)),
                         )
                     }),
             )
     }
 
+    /// A section card wrapper with a label
+    fn section_card(label: &str) -> Div {
+        let label_str: SharedString = label.to_string().into();
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(6.0))
+            .p(px(10.0))
+            .bg(Theme::bg_elevated())
+            .rounded(px(6.0))
+            .child(
+                div()
+                    .text_size(px(10.0))
+                    .text_color(Theme::section_label())
+                    .child(label_str),
+            )
+    }
+
     fn render_config_panel(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_running = self.session.is_running();
-        let udp_label: SharedString = if self.udp_mode { "UDP ●".into() } else { "TCP ●".into() };
+        let udp_label: SharedString = if self.udp_mode { "UDP".into() } else { "TCP".into() };
         let udp_color = if self.udp_mode { Theme::warning() } else { Theme::accent() };
         let method_name: SharedString = self.forward_methods[self.forward_method_index]
             .display_name()
@@ -455,199 +473,211 @@ impl HolePatchApp {
             .into();
 
         div()
+            .id("config-panel")
             .flex()
             .flex_col()
-            .gap(px(12.0))
-            .p(px(16.0))
-            .w(px(320.0))
-            .min_w(px(320.0))
+            .gap(px(8.0))
+            .p(px(12.0))
+            .w(px(280.0))
+            .min_w(px(280.0))
+            .overflow_y_scroll()
             .bg(Theme::bg_secondary())
             .border_r_1()
-            .border_color(Theme::border())
-            // Protocol & Method selectors
+            .border_color(Theme::border_subtle())
+            // Protocol & Method row
             .child(
                 div()
                     .flex()
                     .flex_row()
-                    .gap(px(8.0))
+                    .gap(px(6.0))
                     .child(
                         div()
                             .flex()
                             .flex_col()
-                            .gap_1()
+                            .gap(px(3.0))
                             .flex_1()
                             .child(
                                 div()
-                                    .text_size(px(12.0))
-                                    .text_color(Theme::text_secondary())
+                                    .text_size(px(10.0))
+                                    .text_color(Theme::text_muted())
                                     .child("协议"),
                             )
                             .child(
                                 div()
                                     .id("udp-toggle")
-                                    .px(px(10.0))
-                                    .py(px(6.0))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .px(px(8.0))
+                                    .py(px(5.0))
                                     .bg(Theme::bg_input())
                                     .border_1()
-                                    .border_color(Theme::border())
-                                    .rounded(px(6.0))
+                                    .border_color(Theme::border_subtle())
+                                    .rounded(px(4.0))
                                     .cursor_pointer()
-                                    .text_size(px(14.0))
+                                    .text_size(px(13.0))
                                     .text_color(udp_color)
                                     .child(udp_label)
                                     .when(!is_running, |el| {
                                         el.hover(|s| s.border_color(Theme::border_focused()))
                                             .on_click(cx.listener(Self::on_toggle_udp))
                                     })
-                                    .when(is_running, |el| el.opacity(0.5)),
+                                    .when(is_running, |el| el.opacity(0.4)),
                             ),
                     )
                     .child(
                         div()
                             .flex()
                             .flex_col()
-                            .gap_1()
+                            .gap(px(3.0))
                             .flex_1()
                             .child(
                                 div()
-                                    .text_size(px(12.0))
-                                    .text_color(Theme::text_secondary())
+                                    .text_size(px(10.0))
+                                    .text_color(Theme::text_muted())
                                     .child("转发方式"),
                             )
                             .child(
                                 div()
                                     .id("fwd-method")
-                                    .px(px(10.0))
-                                    .py(px(6.0))
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .px(px(8.0))
+                                    .py(px(5.0))
                                     .bg(Theme::bg_input())
                                     .border_1()
-                                    .border_color(Theme::border())
-                                    .rounded(px(6.0))
+                                    .border_color(Theme::border_subtle())
+                                    .rounded(px(4.0))
                                     .cursor_pointer()
-                                    .text_size(px(14.0))
+                                    .text_size(px(13.0))
                                     .text_color(Theme::text_primary())
                                     .child(method_name)
                                     .when(!is_running, |el| {
                                         el.hover(|s| s.border_color(Theme::border_focused()))
                                             .on_click(cx.listener(Self::on_cycle_forward_method))
                                     })
-                                    .when(is_running, |el| el.opacity(0.5)),
+                                    .when(is_running, |el| el.opacity(0.4)),
                             ),
                     ),
             )
-            // Bind settings
+            // Bind settings card
             .child(
-                div()
-                    .text_size(px(13.0))
-                    .text_color(Theme::accent())
-                    .child("— 绑定设置 —"),
+                Self::section_card("绑定设置")
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(px(6.0))
+                            .child(div().flex_1().child(self.bind_ip_input.clone()))
+                            .child(div().w(px(80.0)).child(self.bind_port_input.clone())),
+                    ),
             )
+            // Target settings card
             .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.0))
-                    .child(div().flex_1().child(self.bind_ip_input.clone()))
-                    .child(div().w(px(100.0)).child(self.bind_port_input.clone())),
+                Self::section_card("转发目标")
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(px(6.0))
+                            .child(div().flex_1().child(self.target_ip_input.clone()))
+                            .child(div().w(px(80.0)).child(self.target_port_input.clone())),
+                    ),
             )
-            // Target settings
+            // Keep-alive settings card
             .child(
-                div()
-                    .text_size(px(13.0))
-                    .text_color(Theme::accent())
-                    .child("— 转发目标 —"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.0))
-                    .child(div().flex_1().child(self.target_ip_input.clone()))
-                    .child(div().w(px(100.0)).child(self.target_port_input.clone())),
-            )
-            // Keep-alive settings
-            .child(
-                div()
-                    .text_size(px(13.0))
-                    .text_color(Theme::accent())
-                    .child("— 保活设置 —"),
-            )
-            .child(
-                div()
-                    .flex()
-                    .flex_row()
-                    .gap(px(8.0))
-                    .child(div().flex_1().child(self.keepalive_host_input.clone()))
-                    .child(div().w(px(70.0)).child(self.keepalive_port_input.clone()))
-                    .child(div().w(px(70.0)).child(self.keepalive_interval_input.clone())),
+                Self::section_card("保活设置")
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(px(6.0))
+                            .child(div().flex_1().child(self.keepalive_host_input.clone()))
+                            .child(div().w(px(56.0)).child(self.keepalive_port_input.clone()))
+                            .child(div().w(px(56.0)).child(self.keepalive_interval_input.clone())),
+                    ),
             )
     }
 
     fn render_log_panel(&self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         let logs = self.cached_logs.clone();
+        let log_count = logs.len();
 
         div()
             .flex()
             .flex_col()
             .flex_1()
             .bg(Theme::bg_primary())
+            // Log header
             .child(
                 div()
-                    .px(px(16.0))
-                    .py(px(8.0))
+                    .flex()
+                    .flex_row()
+                    .items_center()
+                    .px(px(14.0))
+                    .h(px(32.0))
                     .border_b_1()
-                    .border_color(Theme::border())
-                    .text_size(px(13.0))
-                    .text_color(Theme::text_secondary())
-                    .child(format!("日志 ({})", logs.len())),
+                    .border_color(Theme::border_subtle())
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(Theme::text_muted())
+                            .child(SharedString::from(format!("日志  {}", log_count))),
+                    ),
             )
+            // Log entries
             .child(
                 div()
                     .id("log-scroll")
                     .flex_1()
                     .overflow_y_scroll()
-                    .px(px(12.0))
-                    .py(px(8.0))
-                    .children(logs.into_iter().map(|entry| {
-                        let color = match entry.level.as_str() {
+                    .px(px(10.0))
+                    .py(px(4.0))
+                    .children(logs.into_iter().enumerate().map(|(i, entry)| {
+                        let level_color = match entry.level.as_str() {
                             "DEBUG" => Theme::log_debug(),
                             "INFO" => Theme::log_info(),
                             "WARN" => Theme::log_warn(),
                             "ERROR" => Theme::log_error(),
                             _ => Theme::text_primary(),
                         };
-                        let level_badge_bg = match entry.level.as_str() {
-                            "ERROR" => Theme::error(),
-                            "WARN" => Theme::warning(),
-                            _ => Theme::bg_tertiary(),
+                        let row_bg = if i % 2 == 0 {
+                            Theme::transparent()
+                        } else {
+                            hsla(0.0, 0.0, 1.0, 0.015)
                         };
+
                         div()
                             .flex()
                             .flex_row()
-                            .items_start()
-                            .gap(px(8.0))
-                            .py(px(2.0))
-                            .child(
-                                div()
-                                    .text_size(px(11.0))
-                                    .text_color(Theme::text_secondary())
-                                    .min_w(px(60.0))
-                                    .child(SharedString::from(entry.timestamp)),
-                            )
+                            .items_baseline()
+                            .gap(px(6.0))
+                            .px(px(4.0))
+                            .py(px(1.5))
+                            .bg(row_bg)
+                            .rounded(px(2.0))
+                            // Timestamp
                             .child(
                                 div()
                                     .text_size(px(10.0))
-                                    .text_color(color)
-                                    .bg(level_badge_bg)
-                                    .px(px(4.0))
-                                    .rounded(px(3.0))
-                                    .min_w(px(38.0))
+                                    .text_color(Theme::text_muted())
+                                    .min_w(px(52.0))
+                                    .child(SharedString::from(entry.timestamp)),
+                            )
+                            // Level badge
+                            .child(
+                                div()
+                                    .text_size(px(9.0))
+                                    .text_color(level_color)
+                                    .min_w(px(34.0))
                                     .child(SharedString::from(entry.level)),
                             )
+                            // Message
                             .child(
                                 div()
                                     .flex_1()
-                                    .text_size(px(12.0))
+                                    .text_size(px(11.5))
                                     .text_color(Theme::text_primary())
                                     .child(SharedString::from(entry.message)),
                             )
@@ -662,18 +692,22 @@ impl HolePatchApp {
         div()
             .flex()
             .flex_col()
-            .w(px(260.0))
+            .w(px(220.0))
             .bg(Theme::bg_secondary())
             .border_l_1()
-            .border_color(Theme::border())
+            .border_color(Theme::border_subtle())
+            // Header
             .child(
                 div()
+                    .flex()
+                    .flex_row()
+                    .items_center()
                     .px(px(12.0))
-                    .py(px(8.0))
+                    .h(px(32.0))
                     .border_b_1()
-                    .border_color(Theme::border())
-                    .text_size(px(13.0))
-                    .text_color(Theme::text_secondary())
+                    .border_color(Theme::border_subtle())
+                    .text_size(px(11.0))
+                    .text_color(Theme::text_muted())
                     .child("保存的配置"),
             )
             // Profile list
@@ -682,19 +716,18 @@ impl HolePatchApp {
                     .id("profile-list")
                     .flex_1()
                     .overflow_y_scroll()
-                    .px(px(8.0))
-                    .py(px(4.0))
+                    .p(px(6.0))
                     .children(profiles.iter().enumerate().map(|(idx, profile)| {
                         let is_selected = selected == Some(idx);
                         let bg = if is_selected {
+                            Theme::accent_muted()
+                        } else {
+                            Theme::transparent()
+                        };
+                        let left_border = if is_selected {
                             Theme::accent()
                         } else {
-                            Theme::bg_tertiary()
-                        };
-                        let text_color = if is_selected {
-                            hsla(0.0, 0.0, 1.0, 1.0)
-                        } else {
-                            Theme::text_primary()
+                            Theme::transparent()
                         };
                         let name: SharedString = profile.name.clone().into();
                         let mode: SharedString = if profile.udp_mode { "UDP".into() } else { "TCP".into() };
@@ -704,32 +737,31 @@ impl HolePatchApp {
                             .id(ElementId::Name(format!("profile-{}", idx).into()))
                             .flex()
                             .flex_col()
-                            .gap_1()
+                            .gap(px(2.0))
                             .px(px(10.0))
                             .py(px(6.0))
-                            .my(px(2.0))
+                            .my(px(1.0))
                             .bg(bg)
-                            .rounded(px(6.0))
+                            .rounded(px(4.0))
+                            .border_l_2()
+                            .border_color(left_border)
                             .cursor_pointer()
+                            .hover(|s| s.bg(Theme::bg_hover()))
                             .child(
                                 div()
-                                    .text_size(px(13.0))
-                                    .text_color(text_color)
+                                    .text_size(px(12.0))
+                                    .text_color(if is_selected { Theme::text_primary() } else { Theme::text_secondary() })
                                     .child(name),
                             )
                             .child(
                                 div()
                                     .flex()
                                     .flex_row()
-                                    .gap(px(6.0))
-                                    .text_size(px(11.0))
-                                    .text_color(if is_selected {
-                                        hsla(0.0, 0.0, 0.9, 1.0)
-                                    } else {
-                                        Theme::text_secondary()
-                                    })
+                                    .gap(px(4.0))
+                                    .text_size(px(10.0))
+                                    .text_color(Theme::text_muted())
                                     .child(mode)
-                                    .child("·")
+                                    .child(SharedString::from("·"))
                                     .child(method),
                             )
                             .on_click(cx.listener(move |this, _, _, cx| {
@@ -746,43 +778,23 @@ impl HolePatchApp {
                 div()
                     .flex()
                     .flex_col()
-                    .gap(px(4.0))
+                    .gap(px(6.0))
                     .p(px(8.0))
                     .border_t_1()
-                    .border_color(Theme::border())
+                    .border_color(Theme::border_subtle())
                     .child(self.profile_name_input.clone())
                     .child(
                         div()
                             .flex()
                             .flex_row()
-                            .gap(px(6.0))
+                            .gap(px(4.0))
                             .child(
-                                div()
-                                    .id("save-profile-btn")
+                                Self::pill_btn("save-profile-btn", "保存", Theme::accent(), Theme::accent_hover())
                                     .flex_1()
-                                    .px(px(10.0))
-                                    .py(px(6.0))
-                                    .bg(Theme::accent())
-                                    .rounded(px(6.0))
-                                    .cursor_pointer()
-                                    .text_size(px(12.0))
-                                    .text_color(hsla(0.0, 0.0, 1.0, 1.0))
-                                    .child("💾 保存当前配置")
-                                    .hover(|s| s.bg(Theme::accent_hover()))
                                     .on_click(cx.listener(Self::on_save_profile)),
                             )
                             .child(
-                                div()
-                                    .id("delete-profile-btn")
-                                    .px(px(10.0))
-                                    .py(px(6.0))
-                                    .bg(Theme::danger())
-                                    .rounded(px(6.0))
-                                    .cursor_pointer()
-                                    .text_size(px(12.0))
-                                    .text_color(hsla(0.0, 0.0, 1.0, 1.0))
-                                    .child("🗑")
-                                    .hover(|s| s.bg(Theme::danger_hover()))
+                                Self::pill_btn("delete-profile-btn", "删除", Theme::danger(), Theme::danger_hover())
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         if let Some(idx) = this.selected_profile_index {
                                             this.profile_store.remove_profile(idx);
@@ -796,6 +808,12 @@ impl HolePatchApp {
     }
 
     fn render_status_bar(&self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let status_color = match &self.cached_status {
+            NatterStatus::Idle => Theme::text_muted(),
+            NatterStatus::Connecting => Theme::warning(),
+            NatterStatus::Connected { .. } => Theme::success(),
+            NatterStatus::Error(_) => Theme::error(),
+        };
         let status_text: SharedString = match &self.cached_status {
             NatterStatus::Idle => "空闲".into(),
             NatterStatus::Connecting => "正在建立 NAT 映射...".into(),
@@ -807,14 +825,26 @@ impl HolePatchApp {
             .flex()
             .flex_row()
             .items_center()
-            .px(px(16.0))
-            .py(px(4.0))
+            .gap(px(6.0))
+            .px(px(14.0))
+            .h(px(24.0))
             .bg(Theme::bg_secondary())
             .border_t_1()
-            .border_color(Theme::border())
-            .text_size(px(11.0))
-            .text_color(Theme::text_secondary())
-            .child(status_text)
+            .border_color(Theme::border_subtle())
+            // Status dot
+            .child(
+                div()
+                    .w(px(5.0))
+                    .h(px(5.0))
+                    .rounded(px(3.0))
+                    .bg(status_color),
+            )
+            .child(
+                div()
+                    .text_size(px(10.0))
+                    .text_color(Theme::text_muted())
+                    .child(status_text),
+            )
     }
 }
 
@@ -837,18 +867,15 @@ impl Render for HolePatchApp {
             .text_color(Theme::text_primary())
             // Header
             .child(self.render_header(window, cx))
-            // Main content
+            // Main content area
             .child(
                 div()
                     .flex()
                     .flex_row()
                     .flex_1()
                     .overflow_hidden()
-                    // Config panel
                     .child(self.render_config_panel(window, cx))
-                    // Log panel
                     .child(self.render_log_panel(window, cx))
-                    // Profile panel (conditional)
                     .when(show_profiles, |el| {
                         el.child(self.render_profile_panel(window, cx))
                     }),
