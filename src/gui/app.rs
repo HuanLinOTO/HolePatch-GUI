@@ -4,7 +4,7 @@ use gpui::prelude::FluentBuilder;
 use super::text_input::TextInput;
 use super::theme::Theme;
 use crate::core::forward::ForwardMethod;
-use crate::core::natter::{NatterConfig, NatterSession, NatterStatus};
+use crate::core::natter::{NatterConfig, NatterSession, NatterStatus, LogEntry};
 use crate::profile::{Profile, ProfileStore};
 
 /// The main application view
@@ -263,6 +263,51 @@ impl HolePatchApp {
         cx.notify();
     }
 
+    fn get_link_url(&self) -> Option<String> {
+        if let NatterStatus::Connected { outer_addr, .. } = &self.cached_status {
+            let scheme = if self.udp_mode { "udp" } else { "http" };
+            Some(format!("{}://{}", scheme, outer_addr))
+        } else {
+            None
+        }
+    }
+
+    fn add_gui_log(&self, level: &str, message: &str) {
+        let entry = LogEntry {
+            timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+            level: level.to_string(),
+            message: message.to_string(),
+        };
+        if let Ok(mut logs) = self.session.logs.lock() {
+            logs.push(entry);
+        }
+    }
+
+    fn on_copy_link(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(url) = self.get_link_url() {
+            cx.write_to_clipboard(ClipboardItem::new_string(url.clone()));
+            self.add_gui_log("INFO", &format!("链接已复制: {}", url));
+            cx.notify();
+        }
+    }
+
+    fn on_open_link(&mut self, _event: &ClickEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(url) = self.get_link_url() {
+            #[cfg(target_os = "windows")]
+            let result = std::process::Command::new("cmd").args(["/c", "start", "", &url]).spawn();
+            #[cfg(target_os = "macos")]
+            let result = std::process::Command::new("open").arg(&url).spawn();
+            #[cfg(target_os = "linux")]
+            let result = std::process::Command::new("xdg-open").arg(&url).spawn();
+
+            match result {
+                Ok(_) => self.add_gui_log("INFO", &format!("已在浏览器中打开: {}", url)),
+                Err(e) => self.add_gui_log("ERROR", &format!("打开浏览器失败: {}", e)),
+            }
+            cx.notify();
+        }
+    }
+
     fn render_header(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_running = self.session.is_running();
         let status_text: SharedString = match &self.cached_status {
@@ -361,6 +406,40 @@ impl HolePatchApp {
                                 .child("⏹ 停止")
                                 .hover(|s| s.bg(Theme::danger_hover()))
                                 .on_click(cx.listener(Self::on_stop_click)),
+                        )
+                    })
+                    .when(matches!(&self.cached_status, NatterStatus::Connected { .. }), |el| {
+                        el.child(
+                            div()
+                                .id("copy-link-btn")
+                                .px(px(12.0))
+                                .py(px(6.0))
+                                .bg(Theme::bg_tertiary())
+                                .border_1()
+                                .border_color(Theme::border())
+                                .rounded(px(6.0))
+                                .cursor_pointer()
+                                .text_size(px(13.0))
+                                .text_color(Theme::text_primary())
+                                .child("复制链接")
+                                .hover(|s| s.bg(Theme::accent()).text_color(hsla(0.0, 0.0, 1.0, 1.0)))
+                                .on_click(cx.listener(Self::on_copy_link)),
+                        )
+                        .child(
+                            div()
+                                .id("open-browser-btn")
+                                .px(px(12.0))
+                                .py(px(6.0))
+                                .bg(Theme::bg_tertiary())
+                                .border_1()
+                                .border_color(Theme::border())
+                                .rounded(px(6.0))
+                                .cursor_pointer()
+                                .text_size(px(13.0))
+                                .text_color(Theme::text_primary())
+                                .child("浏览器打开")
+                                .hover(|s| s.bg(Theme::accent()).text_color(hsla(0.0, 0.0, 1.0, 1.0)))
+                                .on_click(cx.listener(Self::on_open_link)),
                         )
                     }),
             )
